@@ -1,5 +1,8 @@
 .PHONY: help install prepare-asr run-personaplex run-moshi evaluate clean
 
+VENV := ~/personaplex/Full-Duplex-Bench/.venv_fdb/bin/activate
+SHELL := /bin/bash
+.SHELLFLAGS := -c
 PYTHON := python3
 EVAL_DIR := ./evaluation
 ASR_DIR := ./get_transcript
@@ -30,22 +33,22 @@ help:
 # ──────────────────────────────────────────────────────────────────────────────
 
 install:
-	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install -r requirements.txt
+	source $(VENV) && $(PYTHON) -m pip install --upgrade pip
+	source $(VENV) && $(PYTHON) -m pip install -r requirements-inference.txt
 
 prepare-asr:
-	$(PYTHON) $(ASR_DIR)/asr.py --root_dir $(DATA_DIR)
+	source $(VENV) && $(PYTHON) $(ASR_DIR)/asr.py --root_dir $(DATA_DIR)
 
 run-personaplex:
-	cd $(MODEL_DIR)/personaplex && $(PYTHON) inference.py
+	source $(VENV) && cd $(MODEL_DIR)/personaplex && $(PYTHON) inference.py
 
 run-moshi:
-	cd $(MODEL_DIR)/moshi && $(PYTHON) inference.py
+	source $(VENV) && cd $(MODEL_DIR)/moshi && $(PYTHON) inference.py
 
 evaluate:
-	$(PYTHON) $(EVAL_DIR)/evaluate.py --task behavior
-	$(PYTHON) $(EVAL_DIR)/evaluate.py --task general_before_after
-	$(PYTHON) $(EVAL_DIR)/get_timing.py
+	source $(VENV) && $(PYTHON) $(EVAL_DIR)/evaluate.py --task behavior
+	source $(VENV) && $(PYTHON) $(EVAL_DIR)/evaluate.py --task general_before_after
+	source $(VENV) && $(PYTHON) $(EVAL_DIR)/get_timing.py
 
 clean:
 	find . -name "output.wav" -delete
