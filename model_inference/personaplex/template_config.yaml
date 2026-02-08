@@ -1,0 +1,10 @@
+root_dir_path: "./data/data-full-duplex-bench/v1.5"
+tasks:
+  - "user_interruption"
+  - "user_backchannel"
+  - "talking_to_other"
+  - "background_speech"
+prefix: ""
+overwrite: true
+voice_prompt: "NATF2.pt"
+text_prompt: "You are a helpful and friendly assistant."
