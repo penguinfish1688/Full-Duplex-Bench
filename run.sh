@@ -30,7 +30,7 @@ show_help() {
 install_deps() {
     echo "Installing dependencies..."
     $PYTHON -m pip install --upgrade pip
-    $PYTHON -m pip install -r requirements-inference.txt
+    $PYTHON -m pip install -r requirements.txt
     echo "✓ Installation complete"
 }
 
