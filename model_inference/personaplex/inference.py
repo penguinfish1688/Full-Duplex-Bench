@@ -17,6 +17,7 @@ import asyncio
 from glob import glob
 from pathlib import Path
 from typing import List
+from urllib.parse import quote
 import json
 import ssl
 
@@ -135,12 +136,21 @@ class PersonaplexFileClient:
         Initialize Personaplex client.
 
         Args:
-            ws_url: WebSocket URL to Personaplex server
+            ws_url: WebSocket URL to Personaplex server (will be updated with query params)
             inp: Input audio file path
             out: Output audio file path
             voice_prompt: Optional voice prompt filename
             text_prompt: Optional text prompt string
         """
+        # Build URL with query parameters
+        if voice_prompt or text_prompt:
+            sep = "&" if "?" in ws_url else "?"
+            if voice_prompt:
+                ws_url += f"{sep}voice_prompt={quote(voice_prompt)}"
+                sep = "&"
+            if text_prompt:
+                ws_url += f"{sep}text_prompt={quote(text_prompt)}"
+        
         self.url = ws_url
         self.inp = inp
         self.out = out
@@ -161,12 +171,6 @@ class PersonaplexFileClient:
     # ────────────────────── Sender ──────────────────────
     async def _send(self, ws):
         """Send audio frames to server."""
-        # Send initialization message with text/voice prompts if provided
-        init_msg = self._create_init_message()
-        if init_msg:
-            await ws.send(init_msg)
-            await asyncio.sleep(0.1)
-
         # Stream audio frames
         for frame in _chunk(self.sig24):
             pkt0 = self.writer.append_pcm(frame.astype(np.float32) / 32768)
@@ -184,23 +188,7 @@ class PersonaplexFileClient:
         await asyncio.sleep(0.5)
         await ws.close()
 
-    def _create_init_message(self) -> bytes | None:
-        """
-        Create initialization message with prompts.
-        
-        Format: 0x03 (init marker) + JSON payload
-        """
-        if not self.voice_prompt and not self.text_prompt:
-            return None
-        
-        init_data = {}
-        if self.voice_prompt:
-            init_data["voice_prompt"] = self.voice_prompt
-        if self.text_prompt:
-            init_data["text_prompt"] = self.text_prompt
-        
-        payload = json.dumps(init_data).encode("utf-8")
-        return b"\x03" + payload
+
 
     # ────────────────────── Receiver ──────────────────────
     async def _recv(self, ws):
