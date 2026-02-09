@@ -281,11 +281,11 @@ def _ws_url(addr: str) -> str:
     """Convert address to WebSocket URL."""
     if "://" in addr:
         proto, rest = addr.split("://", 1)
-        proto = "ws" if proto in {"http", "ws"} else "wss"
+        proto = "wss" if proto in {"https", "wss"} else "ws"
         return f"{proto}://{rest.rstrip('/')}/api/chat"
     if ":" not in addr:
         addr += ":8998"
-    return f"ws://{addr}/api/chat"
+    return f"wss://{addr}/api/chat"
 
 
 def _input_files() -> List[Path]:
