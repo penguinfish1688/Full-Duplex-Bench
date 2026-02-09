@@ -235,8 +235,14 @@ class PersonaplexFileClient:
                         except Exception as e:
                             print(f"[WARN] Failed to decode text: {e}")
 
-            except wsex.ConnectionClosedError as e:
-                print("[WARN] recv closed:", e)
+            except (wsex.ConnectionClosed, wsex.ConnectionClosedError) as e:
+                # Log normal close (1000) as info, others as warning
+                code = getattr(e, "code", None)
+                reason = getattr(e, "reason", None)
+                if code == 1000:
+                    print(f"[INFO] successfully closed (code 1000, reason: {reason})")
+                else:
+                    print(f"[WARN] recv closed with code {code}: {e}")
             
             # Pad output if needed (before closing file)
             if samples_written < self.max_samples:
@@ -244,15 +250,24 @@ class PersonaplexFileClient:
 
     async def _run(self, ssl_context=None):
         """Run the WebSocket connection."""
-        async with websockets.connect(self.url, max_size=None, ssl=ssl_context) as ws:
-            try:
-                first = await asyncio.wait_for(ws.recv(), timeout=1.0)
-                if not (isinstance(first, (bytes, bytearray)) and first[:1] == b"\x00"):
-                    ws._put_message(first)
-            except Exception:
-                pass
+        try:
+            async with websockets.connect(self.url, max_size=None, ssl=ssl_context) as ws:
+                try:
+                    first = await asyncio.wait_for(ws.recv(), timeout=1.0)
+                    if not (isinstance(first, (bytes, bytearray)) and first[:1] == b"\x00"):
+                        ws._put_message(first)
+                except Exception:
+                    pass
 
-            await asyncio.gather(self._send(ws), self._recv(ws))
+                await asyncio.gather(self._send(ws), self._recv(ws))
+        except (wsex.ConnectionClosed, wsex.ConnectionClosedError) as e:
+            # Log normal close (1000) as info, others as warning
+            code = getattr(e, "code", None)
+            reason = getattr(e, "reason", None)
+            if code == 1000:
+                print(f"[INFO] successfully closed (code 1000, reason: {reason})")
+            else:
+                print(f"[WARN] connection closed with code {code}: {e}")
         print("[DONE]", self.inp)
 
     def run(self, ssl_context=None):
