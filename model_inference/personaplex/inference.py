@@ -237,12 +237,9 @@ class PersonaplexFileClient:
 
             except wsex.ConnectionClosedError as e:
                 print("[WARN] recv closed:", e)
-
-        # Pad output if needed
-        if samples_written < self.max_samples:
-            with sf.SoundFile(
-                self.out, "a", samplerate=SEND_SR, channels=1, subtype="PCM_16"
-            ) as fout:
+            
+            # Pad output if needed (before closing file)
+            if samples_written < self.max_samples:
                 fout.write(np.zeros(self.max_samples - samples_written, dtype=np.int16))
 
     async def _run(self, ssl_context=None):
