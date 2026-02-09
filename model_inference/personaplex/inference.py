@@ -291,8 +291,10 @@ def _ws_url(addr: str) -> str:
 def _input_files() -> List[Path]:
     """Collect all input WAV files matching the task patterns."""
     files: List[Path] = []
+    # Expand ~ and create a Path object for the root directory
+    root = Path(root_dir_path).expanduser()
     for t in tasks:
-        pattern = str(Path(root_dir_path) / f"{t}/*/{prefix}input.wav")
+        pattern = str(root / f"{t}/*/{prefix}input.wav")
         files += [Path(p) for p in sorted(glob(pattern))]
     return files
 
