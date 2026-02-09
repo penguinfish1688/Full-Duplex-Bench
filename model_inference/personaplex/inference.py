@@ -325,21 +325,38 @@ def main():
     voice_prompt_to_use = args.voice_prompt if args.voice_prompt else voice_prompt
     text_prompt_to_use = args.text_prompt if args.text_prompt else text_prompt
 
-    for inp in _input_files():
+    # Debug output
+    print(f"[CONFIG] root_dir_path: {root_dir_path}")
+    print(f"[CONFIG] tasks: {tasks}")
+    print(f"[CONFIG] prefix: {prefix}")
+    print(f"[CONFIG] voice_prompt: {voice_prompt_to_use}")
+    print(f"[SERVER] url: {url}")
+    
+    input_files = _input_files()
+    print(f"[FILES] Found {len(input_files)} input files")
+    
+    if not input_files:
+        print("[ERROR] No input files found. Check root_dir_path and tasks in config.yaml")
+        return
+
+    for inp in input_files:
         out = inp.with_name(inp.name.replace("input.wav", "output.wav"))
         if not overwrite and out.exists():
             print("[SKIP]", out)
             continue
         out.parent.mkdir(parents=True, exist_ok=True)
         print("[RUN]", inp)
-        client = PersonaplexFileClient(
-            url,
-            inp,
-            out,
-            voice_prompt=voice_prompt_to_use,
-            text_prompt=text_prompt_to_use,
-        )
-        client.run()
+        try:
+            client = PersonaplexFileClient(
+                url,
+                inp,
+                out,
+                voice_prompt=voice_prompt_to_use,
+                text_prompt=text_prompt_to_use,
+            )
+            client.run()
+        except Exception as e:
+            print(f"[ERROR] Failed to process {inp}: {e}")
 
 
 if __name__ == "__main__":
