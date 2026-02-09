@@ -18,6 +18,7 @@ from glob import glob
 from pathlib import Path
 from typing import List
 import json
+import ssl
 
 import numpy as np
 import soundfile as sf
@@ -256,9 +257,9 @@ class PersonaplexFileClient:
             ) as fout:
                 fout.write(np.zeros(self.max_samples - samples_written, dtype=np.int16))
 
-    async def _run(self):
+    async def _run(self, ssl_context=None):
         """Run the WebSocket connection."""
-        async with websockets.connect(self.url, max_size=None) as ws:
+        async with websockets.connect(self.url, max_size=None, ssl=ssl_context) as ws:
             try:
                 first = await asyncio.wait_for(ws.recv(), timeout=1.0)
                 if not (isinstance(first, (bytes, bytearray)) and first[:1] == b"\x00"):
@@ -269,10 +270,10 @@ class PersonaplexFileClient:
             await asyncio.gather(self._send(ws), self._recv(ws))
         print("[DONE]", self.inp)
 
-    def run(self):
+    def run(self, ssl_context=None):
         """Execute inference."""
         try:
-            asyncio.run(self._run())
+            asyncio.run(self._run(ssl_context))
         except wsex.ConnectionClosedError as e:
             print("[WARN] closed:", e)
 
@@ -319,9 +320,21 @@ def main():
         default=None,
         help="Override text prompt instruction",
     )
+    ap.add_argument(
+        "--insecure",
+        action="store_true",
+        help="Skip SSL certificate verification (for self-signed certs)",
+    )
     args = ap.parse_args()
 
     url = _ws_url(args.server_ip)
+    
+    # Create SSL context if --insecure flag is set
+    ssl_context = None
+    if args.insecure:
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
     
     # Use CLI overrides if provided, otherwise use config defaults
     voice_prompt_to_use = args.voice_prompt if args.voice_prompt else voice_prompt
@@ -333,6 +346,8 @@ def main():
     print(f"[CONFIG] prefix: {prefix}")
     print(f"[CONFIG] voice_prompt: {voice_prompt_to_use}")
     print(f"[SERVER] url: {url}")
+    if args.insecure:
+        print("[SERVER] SSL verification disabled")
     
     input_files = _input_files()
     print(f"[FILES] Found {len(input_files)} input files")
@@ -356,7 +371,7 @@ def main():
                 voice_prompt=voice_prompt_to_use,
                 text_prompt=text_prompt_to_use,
             )
-            client.run()
+            client.run(ssl_context)
         except Exception as e:
             print(f"[ERROR] Failed to process {inp}: {e}")
 
