@@ -257,10 +257,7 @@ class PersonaplexFileClient:
 
     def run(self, ssl_context=None):
         """Execute inference."""
-        try:
-            asyncio.run(self._run(ssl_context))
-        except wsex.ConnectionClosedError as e:
-            print("[WARN] closed:", e)
+        asyncio.run(self._run(ssl_context))
 
 
 def _ws_url(addr: str) -> str:
