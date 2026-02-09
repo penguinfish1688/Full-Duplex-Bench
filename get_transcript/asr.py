@@ -14,13 +14,15 @@ def get_time_aligned_transcription(data_path, task):
     # Collect all output.wav files under the root directory
     audio_paths = sorted(glob(f"{data_path}/*/{MODEL_NAME}output.wav"))
 
+    print(f"Found {len(audio_paths)} audio files for transcription.")
+
     # Load the pretrained NeMo ASR model and move to GPU
     asr_model = nemo_asr.models.ASRModel.from_pretrained(
         model_name="nvidia/parakeet-tdt-0.6b-v2"
     ).cuda()
 
     for audio_path in tqdm(audio_paths):
-        print(audio_path)
+        print(f"Transcribing: {audio_path}")
         # Read the audio file (waveform and sample rate)
         waveform, sr = sf.read(audio_path)
         # If multichannel audio, convert to mono by averaging channels
