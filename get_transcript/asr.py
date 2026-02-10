@@ -48,12 +48,16 @@ def get_time_aligned_transcription(data_path, task):
 
         import tempfile
 
+        # [Modification] The issue was that the temporary file wasn't being closed/flushed before the ASR model tried to read it, causing it to get empty audio data.
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-            sf.write(tmp.name, waveform, sr)
-            # original file‐based API (this accepts timestamps=True)
-            asr_outputs = asr_model.transcribe([tmp.name], timestamps=True)
+            tmp_name = tmp.name
+            sf.write(tmp_name, waveform, sr)
+        
+        # File is now closed and flushed, safe to read
+        asr_outputs = asr_model.transcribe([tmp_name], timestamps=True)
+        
         # remove the temp file so you don't leak disk
-        os.unlink(tmp.name)
+        os.unlink(tmp_name)
 
         # Take the first (and only) result
         result = asr_outputs[0]
