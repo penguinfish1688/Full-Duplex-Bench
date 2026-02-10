@@ -185,8 +185,9 @@ class PersonaplexFileClient:
         queued = self.writer.read_bytes()
         if queued:
             await ws.send(b"\x01" + queued)
-        await asyncio.sleep(0.5)
-        await ws.close()
+        # Do NOT close the WebSocket here.
+        # Let _recv() decide when enough output audio has been collected.
+        print("[SEND] finished streaming input audio")
 
 
 
@@ -199,6 +200,8 @@ class PersonaplexFileClient:
         with sf.SoundFile(
             self.out, "w", samplerate=SEND_SR, channels=1, subtype="PCM_16"
         ) as fout:
+            silence_timeout = 10  # seconds with no audio → assume server is done
+            last_audio_time = asyncio.get_event_loop().time()
             try:
                 async for msg in ws:
                     if not msg or msg[0] not in (1, 2):
@@ -213,6 +216,8 @@ class PersonaplexFileClient:
                             if pcm.size == 0:
                                 break
 
+                            last_audio_time = asyncio.get_event_loop().time()
+
                             if not first_pcm_seen:
                                 # Skip initial frames if configured
                                 pad = min(SKIP_FRAMES * FRAME_SMP, self.max_samples)
@@ -222,10 +227,18 @@ class PersonaplexFileClient:
 
                             remain = self.max_samples - samples_written
                             if remain <= 0:
-                                continue
+                                # Collected enough output — close connection
+                                print(f"[RECV] collected {samples_written} samples, closing")
+                                await ws.close()
+                                break
                             n_write = min(pcm.size, remain)
                             fout.write((pcm[:n_write] * 32768).astype(np.int16))
                             samples_written += n_write
+                        else:
+                            # inner while ended normally (pcm.size==0); continue outer loop
+                            continue
+                        # inner while was broken out of (enough samples); break outer
+                        break
 
                     elif kind == 2:  # Text output (0x02)
                         try:
@@ -247,15 +260,19 @@ class PersonaplexFileClient:
             # Pad output if needed (before closing file)
             if samples_written < self.max_samples:
                 fout.write(np.zeros(self.max_samples - samples_written, dtype=np.int16))
+            print(f"[RECV] wrote {samples_written}/{self.max_samples} samples")
 
     async def _run(self, ssl_context=None):
         """Run the WebSocket connection."""
         try:
             async with websockets.connect(self.url, max_size=None, ssl=ssl_context) as ws:
                 try:
-                    first = await asyncio.wait_for(ws.recv(), timeout=1.0)
+                    # System prompts can take a long time; wait generously.
+                    first = await asyncio.wait_for(ws.recv(), timeout=120.0)
                     if not (isinstance(first, (bytes, bytearray)) and first[:1] == b"\x00"):
                         ws._put_message(first)
+                except asyncio.TimeoutError:
+                    print("[WARN] handshake timed out after 120 s")
                 except Exception:
                     pass
 
