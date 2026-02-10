@@ -48,6 +48,16 @@ def get_time_aligned_transcription(data_path, task):
 
         import tempfile
 
+        # Skip empty or too-short waveforms (NeMo preprocessor requires > 0 samples)
+        if len(waveform) == 0 or (len(waveform) / sr) < 0.1:
+            print(f"[SKIP] {audio_path}: waveform too short ({len(waveform)} samples, {len(waveform)/sr:.3f}s)")
+            # Write empty result
+            result_path = audio_path.replace(f"{MODEL_NAME}output.wav", "output.json")
+            os.makedirs(os.path.dirname(result_path), exist_ok=True)
+            with open(result_path, "w") as f:
+                json.dump({"text": "", "chunks": []}, f, indent=4)
+            continue
+
         # [Modification] The issue was that the temporary file wasn't being closed/flushed before the ASR model tried to read it, causing it to get empty audio data.
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp_name = tmp.name
