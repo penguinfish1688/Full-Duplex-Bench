@@ -43,7 +43,7 @@ def eval_backchannel(data_dir):
         backchannel_prediction = []
 
         json_file_name = f"{data_dir}/{spk}/output.json"
-
+        print(f"Processing output file {json_file_name}")
         if not os.path.exists(json_file_name):
             print("The output.json file does not exist")
             backchannel_prediction = []
