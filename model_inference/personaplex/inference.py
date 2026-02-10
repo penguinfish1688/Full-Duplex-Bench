@@ -265,7 +265,14 @@ class PersonaplexFileClient:
     async def _run(self, ssl_context=None):
         """Run the WebSocket connection."""
         try:
-            async with websockets.connect(self.url, max_size=None, ssl=ssl_context) as ws:
+            async with websockets.connect(
+                self.url,
+                max_size=None,
+                ssl=ssl_context,
+                ping_interval=None,   # Disable keepalive pings — server blocks
+                ping_timeout=None,    # the event loop during system-prompt GPU
+                close_timeout=30,     # inference, so pongs arrive too late.
+            ) as ws:
                 try:
                     # System prompts can take a long time; wait generously.
                     first = await asyncio.wait_for(ws.recv(), timeout=120.0)
