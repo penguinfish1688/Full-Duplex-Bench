@@ -10,11 +10,12 @@ from tqdm import tqdm
 MODEL_NAME = ""
 
 
-def get_time_aligned_transcription(data_path, task):
-    # Collect all output.wav files under the root directory
-    audio_paths = sorted(glob(f"{data_path}/*/{MODEL_NAME}output.wav"))
+def get_time_aligned_transcription(data_path, task, audio_source="output"):
+    # Collect input.wav or output.wav files under the root directory
+    source_filename = f"{MODEL_NAME}{audio_source}.wav"
+    audio_paths = sorted(glob(f"{data_path}/*/{source_filename}"))
 
-    print(f"Found {len(audio_paths)} audio files for transcription.")
+    print(f"Found {len(audio_paths)} {audio_source}.wav files for transcription.")
 
     # Load the pretrained NeMo ASR model and move to GPU
     asr_model = nemo_asr.models.ASRModel.from_pretrained(
@@ -34,7 +35,7 @@ def get_time_aligned_transcription(data_path, task):
 
         if task == "user_interruption":
             # Load the interrupt metadata to get [start, end] timestamps
-            meta_path = audio_path.replace(f"{MODEL_NAME}output.wav", "interrupt.json")
+            meta_path = os.path.join(os.path.dirname(audio_path), "interrupt.json")
             with open(meta_path, "r") as f:
                 interrupt_meta = json.load(f)
 
@@ -52,7 +53,7 @@ def get_time_aligned_transcription(data_path, task):
         if len(waveform) == 0 or (len(waveform) / sr) < 0.1:
             print(f"[SKIP] {audio_path}: waveform too short ({len(waveform)} samples, {len(waveform)/sr:.3f}s)")
             # Write empty result
-            result_path = audio_path.replace(f"{MODEL_NAME}output.wav", "output.json")
+            result_path = os.path.join(os.path.dirname(audio_path), f"{audio_source}.json")
             os.makedirs(os.path.dirname(result_path), exist_ok=True)
             with open(result_path, "w") as f:
                 json.dump({"text": "", "chunks": []}, f, indent=4)
@@ -95,7 +96,7 @@ def get_time_aligned_transcription(data_path, task):
         }
 
         # Write the JSON result next to the WAV file
-        result_path = audio_path.replace(f"{MODEL_NAME}output.wav", "output.json")
+        result_path = os.path.join(os.path.dirname(audio_path), f"{audio_source}.json")
         os.makedirs(os.path.dirname(result_path), exist_ok=True)
         with open(result_path, "w") as f:
             json.dump(output_dict, f, indent=4)
@@ -109,7 +110,7 @@ if __name__ == "__main__":
         "--root_dir",
         type=str,
         required=True,
-        help="Root folder containing subfolders with output.wav (and interrupt.json)",
+        help="Root folder containing subfolders with input.wav/output.wav (and interrupt.json)",
     )
     parser.add_argument(
         "--task",
@@ -118,6 +119,13 @@ if __name__ == "__main__":
         choices=["full", "user_interruption"],
         help="Choose 'full' for entire transcript or 'user_interruption' to crop before ASR",
     )
+    parser.add_argument(
+        "--audio-source",
+        type=str,
+        default="output",
+        choices=["output", "input"],
+        help="Choose which wav to transcribe in each sample folder: output.wav (default) or input.wav",
+    )
     args = parser.parse_args()
 
-    get_time_aligned_transcription(args.root_dir, args.task)
+    get_time_aligned_transcription(args.root_dir, args.task, args.audio_source)
