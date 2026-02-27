@@ -10,7 +10,7 @@ from tqdm import tqdm
 MODEL_NAME = ""
 
 
-def get_time_aligned_transcription(data_path, task, audio_source="output"):
+def get_time_aligned_transcription(data_path, task, audio_source="output", output_suffix=None):
     # Collect input.wav or output.wav files under the root directory
     source_filename = f"{MODEL_NAME}{audio_source}.wav"
     audio_paths = sorted(glob(f"{data_path}/*/{source_filename}"))
@@ -53,7 +53,8 @@ def get_time_aligned_transcription(data_path, task, audio_source="output"):
         if len(waveform) == 0 or (len(waveform) / sr) < 0.1:
             print(f"[SKIP] {audio_path}: waveform too short ({len(waveform)} samples, {len(waveform)/sr:.3f}s)")
             # Write empty result
-            result_path = os.path.join(os.path.dirname(audio_path), f"{audio_source}.json")
+            json_name = f"{audio_source}_{output_suffix}.json" if output_suffix else f"{audio_source}.json"
+            result_path = os.path.join(os.path.dirname(audio_path), json_name)
             os.makedirs(os.path.dirname(result_path), exist_ok=True)
             with open(result_path, "w") as f:
                 json.dump({"text": "", "chunks": []}, f, indent=4)
@@ -96,7 +97,8 @@ def get_time_aligned_transcription(data_path, task, audio_source="output"):
         }
 
         # Write the JSON result next to the WAV file
-        result_path = os.path.join(os.path.dirname(audio_path), f"{audio_source}.json")
+        json_name = f"{audio_source}_{output_suffix}.json" if output_suffix else f"{audio_source}.json"
+        result_path = os.path.join(os.path.dirname(audio_path), json_name)
         os.makedirs(os.path.dirname(result_path), exist_ok=True)
         with open(result_path, "w") as f:
             json.dump(output_dict, f, indent=4)
@@ -126,6 +128,12 @@ if __name__ == "__main__":
         choices=["output", "input"],
         help="Choose which wav to transcribe in each sample folder: output.wav (default) or input.wav",
     )
+    parser.add_argument(
+        "--output-suffix",
+        type=str,
+        default=None,
+        help="Optional suffix: output becomes {audio_source}_{suffix}.json instead of {audio_source}.json",
+    )
     args = parser.parse_args()
 
-    get_time_aligned_transcription(args.root_dir, args.task, args.audio_source)
+    get_time_aligned_transcription(args.root_dir, args.task, args.audio_source, args.output_suffix)
