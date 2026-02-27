@@ -125,7 +125,7 @@ if __name__ == "__main__":
         "--audio-source",
         type=str,
         default="output",
-        choices=["output", "input"],
+        choices=["output", "input", "complete_sentence", "incomplete_sentence"],
         help="Choose which wav to transcribe in each sample folder: output.wav (default) or input.wav",
     )
     parser.add_argument(
