@@ -169,7 +169,6 @@ def _extract_json_object(text: str) -> dict[str, Any]:
 def _evaluate_one(openai_client: OpenAI, system_prompt: str, item: Q2Data) -> Q2Data:
     user_prompt = (
         f"Interruption Question: {item.interruption_question}\n"
-        f"Expected Ground Truth Answer: {item.expected_answer}\n"
         f"Model Response: {item.model_response}\n"
     )
 
@@ -216,21 +215,22 @@ def _evaluate_one(openai_client: OpenAI, system_prompt: str, item: Q2Data) -> Q2
 
 def evaluate_with_gpt(data_list: list[Q2Data], openai_client: OpenAI, max_workers=10) -> list[Q2Data]:
     SYSTEM_PROMPT = '''
-    You are a objective linguistic evaluator grading an AI's ability to interpret a question correctly.
-
-    The keyword is the first word of the `Interruption Question`.
+    You are a strict linguistic evaluator grading whether an AI successfully heard the VERY FIRST WORD of a sudden interruption.
     
-    [Grading Rules (Binary 0 or 1)]
-    Score 1 (Irrefutable Proof of Hearing): 
-    The AI's response explicitly references the core entities, keywords, or direct semantic concepts from the User's Question.
+    Your ONLY task is to determine if the AI's response proves it caught the specific concept introduced by the first word of the `Interruption Question`.
 
-    Score 0 (Failed, Ignored, or Ambiguous): 
+    [Grading Rules (Binary 0 or 1)]
+    Score 1 (Successfully Caught the First Word): 
+    The AI's response explicitly references the specific entity, subject, or core semantic concept represented by the FIRST WORD of the User's Question. It is not enough to answer the general premise; the specific subject of the first word must be addressed or acknowledged.
+
+    Score 0 (Failed to Hear the First Word): 
     Assign 0 if ANY of the following apply:
-    - Unrelated Topic: The response talks about things disconnected from the question.
-    - Naked/Generic Answers: The response is merely "Yes", "No", "True", "False", "Correct", or "I agree" WITHOUT further elaboration mentioning the entities.
+    - Missed First Word: The AI's response addresses later parts of the question but completely misses or ignores the specific entity/concept of the first word.
+    - Unrelated Topic: The response is completely disconnected from the first word.
+    - Naked/Generic Answers: The response is merely "Yes", "No", "True", "False", etc., WITHOUT explicitly elaborating on the first word's concept.
     - Gibberish: Unintelligible or repetitive filler words.
 
-    Output ONLY a valid JSON object: {"score": <0 or 1>, "reason": "<brief 1-sentence explanation of what entities were caught or missed>"}
+    Output ONLY a valid JSON object: {"score": <0 or 1>, "reason": "<brief 1-sentence explanation of how the FIRST WORD's concept was caught or missed>"}
     '''
     if not data_list:
         return []
@@ -281,7 +281,6 @@ def _build_summary(results: list[Q2Data]) -> dict[str, Any]:
             {
                 "dir_path": x.dir_path,
                 "interruption_question": x.interruption_question,
-                "expected_answer": x.expected_answer,
                 "model_response": x.model_response,
                 "gpt_score": x.gpt_score,
                 "gpt_reason": x.gpt_reason,
