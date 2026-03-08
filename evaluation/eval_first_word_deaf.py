@@ -215,22 +215,20 @@ def _evaluate_one(openai_client: OpenAI, system_prompt: str, item: Q2Data) -> Q2
 
 def evaluate_with_gpt(data_list: list[Q2Data], openai_client: OpenAI, max_workers=10) -> list[Q2Data]:
     SYSTEM_PROMPT = '''
-    You are a strict linguistic evaluator grading whether an AI successfully heard the VERY FIRST WORD of a sudden interruption.
-    
-    Your ONLY task is to determine if the AI's response proves it caught the specific concept introduced by the first word of the `Interruption Question`.
+    Evaluate if the AI successfully heard the VERY FIRST WORD of the User's Interruption Question.
+    Do NOT infer context. Be strictly literal.
 
-    [Grading Rules (Binary 0 or 1)]
-    Score 1 (Successfully Caught the First Word): 
-    The AI's response explicitly references the specific entity, subject, or core semantic concept represented by the FIRST WORD of the User's Question. It is not enough to answer the general premise; the specific subject of the first word must be addressed or acknowledged.
+    Score 1: The response EXPLICITLY names the entity/subject of the first word (or a direct synonym).
+    Score 0: The response does NOT explicitly name the first word's subject. 
 
-    Score 0 (Failed to Hear the First Word): 
-    Assign 0 if ANY of the following apply:
-    - Missed First Word: The AI's response addresses later parts of the question but completely misses or ignores the specific entity/concept of the first word.
-    - Unrelated Topic: The response is completely disconnected from the first word.
-    - Naked/Generic Answers: The response is merely "Yes", "No", "True", "False", etc., WITHOUT explicitly elaborating on the first word's concept.
-    - Gibberish: Unintelligible or repetitive filler words.
+    Automatically assign 0 for any of these failures:
+    - Tail-End Catching: Reacts only to the end of the question, missing the first word.
+    - Pronoun Dodging: Uses "it/they/that/this" instead of explicitly naming the subject.
+    - Self-Referential: Answers with "I/my/me" because it missed the subject.
+    - Naked Answers: Just says "Yes/No/True/False" with no subject attached.
+    - Unrelated/Gibberish: Fails to address the first word entirely.
 
-    Output ONLY a valid JSON object: {"score": <0 or 1>, "reason": "<brief 1-sentence explanation of how the FIRST WORD's concept was caught or missed>"}
+    Output ONLY JSON: {"score": <0 or 1>, "reason": "<1-sentence explanation identifying the first word and if it was explicitly said>"}
     '''
     if not data_list:
         return []
