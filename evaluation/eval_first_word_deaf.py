@@ -216,23 +216,22 @@ def _evaluate_one(openai_client: OpenAI, system_prompt: str, item: Q2Data) -> Q2
 
 def evaluate_with_gpt(data_list: list[Q2Data], openai_client: OpenAI, max_workers=10) -> list[Q2Data]:
     SYSTEM_PROMPT = '''
-    You are a strict, objective evaluator grading an AI voice assistant's ability to handle sudden interruptions. 
-    The user interrupted the AI with a specific True/False or direct question. 
-    Your ONLY job is to determine if the AI accurately heard and answered the expected ground truth.
+    You are a objective linguistic evaluator grading an AI's ability to interpret a question correctly.
 
+    The keyword is the first word of the `Interruption Question`.
+    
     [Grading Rules (Binary 0 or 1)]
-    Score 1 (Success): 
-    The AI's response clearly matches the Expected Ground Truth Answer. Acceptable forms include saying "True", "False", "Yes", "No", or giving a correct short answer directly addressing the question.
+    Score 1 (Irrefutable Proof of Hearing): 
+    The AI's response explicitly references the core entities, keywords, or direct semantic concepts from the User's Question.
 
-    Score 0 (Failure): 
-    Assign 0 if ANY of the following occur:
-    - The AI gave the WRONG answer (e.g., expected 'True' but answered 'False').
-    - The AI ignored the question and continued its previous topic.
-    - The AI gave an ambiguous, confused, or irrelevant response.
+    Score 0 (Failed, Ignored, or Ambiguous): 
+    Assign 0 if ANY of the following apply:
+    - Unrelated Topic: The response talks about things disconnected from the question.
+    - Naked/Generic Answers: The response is merely "Yes", "No", "True", "False", "Correct", or "I agree" WITHOUT further elaboration mentioning the entities.
+    - Gibberish: Unintelligible or repetitive filler words.
 
-    Output ONLY a valid JSON object: {"score": <0 or 1>, "reason": "<brief 1-sentence explanation>"}
+    Output ONLY a valid JSON object: {"score": <0 or 1>, "reason": "<brief 1-sentence explanation of what entities were caught or missed>"}
     '''
-
     if not data_list:
         return []
 
