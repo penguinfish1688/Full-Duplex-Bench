@@ -174,7 +174,7 @@ def _evaluate_one(openai_client: OpenAI, system_prompt: str, item: Q2Data) -> Q2
     )
 
     response = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-mini",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
