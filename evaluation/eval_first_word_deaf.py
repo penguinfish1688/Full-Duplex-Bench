@@ -105,49 +105,56 @@ def model_response_for_q2(root_dir, model_response_time=15, buffer_time=1):
     results: list[Q2Data] = []
 
     for sample_dir in _list_sample_dirs(root_dir):
-        user_interrupt_path = sample_dir / "user_interrupts_text.json"
-        transcript_path = sample_dir / "output_transcript.json"
-        output_wav_path = sample_dir / "output.wav"
+        try:
+            user_interrupt_path = sample_dir / "user_interrupts_text.json"
+            transcript_path = sample_dir / "output_transcript.json"
+            output_wav_path = sample_dir / "output.wav"
 
-        if not user_interrupt_path.exists():
-            raise FileNotFoundError(f"user_interrupts_text.json not found in {sample_dir}")
-        if not transcript_path.exists():
-            raise FileNotFoundError(f"output_transcript.json not found in {sample_dir}")
-        if not output_wav_path.exists():
-            raise FileNotFoundError(f"output.wav not found in {sample_dir}")
-
-        with user_interrupt_path.open("r", encoding="utf-8") as f:
-            user_interrupt_data = json.load(f)
-
-        with transcript_path.open("r", encoding="utf-8") as f:
-            transcript_data = json.load(f)
-
-        duration = float(sf.info(str(output_wav_path)).duration)
-        start_time = max(0.0, duration - float(model_response_time) - float(buffer_time))
-
-        all_items = _extract_word_items(transcript_data)
-        selected_words: list[str] = []
-
-        for item in all_items:
-            text = item.get("text") if isinstance(item, dict) else None
-            if not isinstance(text, str):
+            if not user_interrupt_path.exists():
+                print(f"[warn] Skipping {sample_dir}: user_interrupts_text.json not found")
                 continue
-            word_start = _item_start_time(item)
-            if word_start is None or word_start >= start_time:
-                selected_words.append(text)
+            if not transcript_path.exists():
+                print(f"[warn] Skipping {sample_dir}: output_transcript.json not found")
+                continue
+            if not output_wav_path.exists():
+                print(f"[warn] Skipping {sample_dir}: output.wav not found")
+                continue
 
-        model_response = _to_sentence(selected_words)
-        question = str(user_interrupt_data.get("question_2", "")).strip()
-        expected = _normalize_answer(user_interrupt_data.get("question_2_answer", ""))
+            with user_interrupt_path.open("r", encoding="utf-8") as f:
+                user_interrupt_data = json.load(f)
 
-        results.append(
-            Q2Data(
-                dir_path=str(sample_dir),
-                interruption_question=question,
-                expected_answer=expected,
-                model_response=model_response,
+            with transcript_path.open("r", encoding="utf-8") as f:
+                transcript_data = json.load(f)
+
+            duration = float(sf.info(str(output_wav_path)).duration)
+            start_time = max(0.0, duration - float(model_response_time) - float(buffer_time))
+
+            all_items = _extract_word_items(transcript_data)
+            selected_words: list[str] = []
+
+            for item in all_items:
+                text = item.get("text") if isinstance(item, dict) else None
+                if not isinstance(text, str):
+                    continue
+                word_start = _item_start_time(item)
+                if word_start is None or word_start >= start_time:
+                    selected_words.append(text)
+
+            model_response = _to_sentence(selected_words)
+            question = str(user_interrupt_data.get("question_2", "")).strip()
+            expected = _normalize_answer(user_interrupt_data.get("question_2_answer", ""))
+
+            results.append(
+                Q2Data(
+                    dir_path=str(sample_dir),
+                    interruption_question=question,
+                    expected_answer=expected,
+                    model_response=model_response,
+                )
             )
-        )
+        except Exception as exc:
+            print(f"[warn] Skipping {sample_dir}: {exc}")
+            continue
 
     return results
 
