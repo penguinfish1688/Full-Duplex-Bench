@@ -220,8 +220,13 @@ def _evaluate_one(openai_client: OpenAI, system_prompt: str, item: Q2Data) -> Q2
     return item
 
 
-def evaluate_with_gpt(data_list: list[Q2Data], openai_client: OpenAI, max_workers=10) -> list[Q2Data]:
-    SYSTEM_PROMPT = '''
+def evaluate_with_gpt(
+    data_list: list[Q2Data],
+    openai_client: OpenAI,
+    max_workers=10,
+    eval_type: str = "first-word",
+) -> list[Q2Data]:
+    FIRST_WORD_SYSTEM_PROMPT = '''
     Evaluate if the AI successfully heard the VERY FIRST WORD of the User's Interruption Question.
     Do NOT infer context. Be strictly literal.
 
@@ -237,6 +242,31 @@ def evaluate_with_gpt(data_list: list[Q2Data], openai_client: OpenAI, max_worker
 
     Output ONLY JSON: {"score": <0 or 1>, "reason": "<1-sentence explanation identifying the first word and if it was explicitly said>"}
     '''
+
+    CORRECTNESS_SYSTEM_PROMPT = '''
+    Evaluate if the AI provided a FACTUALLY CORRECT and DIRECT answer to the User's Interruption Question.
+    Do NOT evaluate politeness, tone, or conversational flow. Be strictly objective about accuracy.
+
+    Score 1: The response provides an accurate, specific, and logically correct answer to the interruption question.
+    Score 0: The response is incorrect, evasive, or answers the wrong question.
+
+    Automatically assign 0 for any of these failures:
+    - Topic Bleed (Inertia): The AI continues answering or referencing the pre-interruption topic, failing to fully transition its logic to the new question.
+    - Factually Incorrect/Hallucination: The AI attempts to answer the new question but provides definitively wrong information.
+    - Evasion/Refusal: The AI dodges the question (e.g., "I'm not sure," "Let's get back to...") or gives a meaningless generic response.
+    - Vague Approximation: The answer lacks the specific detail required by the question (e.g., answering "a lot" when a specific entity or fact is implicitly/explicitly requested).
+
+    Output ONLY JSON: {"score": <0 or 1>, "reason": "<1-sentence explanation stating what the correct answer should be and why the AI passed/failed>"}
+    '''
+
+    prompt_map = {
+        "first-word": FIRST_WORD_SYSTEM_PROMPT,
+        "correctness": CORRECTNESS_SYSTEM_PROMPT,
+    }
+    if eval_type not in prompt_map:
+        raise ValueError(f"Unsupported eval_type '{eval_type}'. Expected one of: {', '.join(prompt_map)}")
+    system_prompt = prompt_map[eval_type]
+
     if not data_list:
         return []
 
@@ -245,7 +275,7 @@ def evaluate_with_gpt(data_list: list[Q2Data], openai_client: OpenAI, max_worker
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
-            executor.submit(_evaluate_one, openai_client, SYSTEM_PROMPT, item): item
+            executor.submit(_evaluate_one, openai_client, system_prompt, item): item
             for item in data_list
         }
         for future in as_completed(futures):
@@ -323,6 +353,12 @@ def main() -> int:
         action="store_true",
         help="Only extract model responses, do not call OpenAI evaluator.",
     )
+    parser.add_argument(
+        "--type",
+        choices=["first-word", "correctness"],
+        default="first-word",
+        help="Evaluation type prompt to use (default: first-word).",
+    )
 
     args = parser.parse_args()
     data_list = model_response_for_q2(
@@ -350,10 +386,11 @@ def main() -> int:
         data_list=data_list,
         openai_client=client,
         max_workers=args.max_workers,
+        eval_type=args.type,
     )
 
     summary = _build_summary(evaluated)
-    summary_path = Path(args.root_dir) / "q2_evaluation_summary.json"
+    summary_path = Path(args.root_dir) / f"q2_evaluation_summary_{args.type}.json"
     with summary_path.open("w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
