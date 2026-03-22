@@ -20,11 +20,11 @@ def _parse_rating(raw_text: str) -> int:
 
 def _load_answer_text(output_json_path: Path) -> str:
     if not output_json_path.exists():
-        return ""
+        raise FileNotFoundError(f"Missing ASR transcript file: {output_json_path}")
     with output_json_path.open("r", encoding="utf-8") as f:
         payload = json.load(f)
     if not isinstance(payload, dict):
-        return ""
+        raise ValueError(f"Expected dict in {output_json_path}, got {type(payload)}")
     return str(payload.get("text", "")).strip()
 
 
@@ -98,33 +98,18 @@ def eval_false_injection(
     root = Path(root_dir)
     named_pattern = f"*/output_{int(layer)}_{prob}.wav"
     output_wavs = [p for p in root.glob(named_pattern) if p.is_file()]
-    using_named_outputs = True
-    if not output_wavs:
-        output_wavs = [p for p in root.glob("*/output.wav") if p.is_file()]
-        using_named_outputs = False
     output_wavs.sort(key=lambda p: int(p.parent.name) if p.parent.name.isdigit() else p.parent.name)
     if not output_wavs:
-        raise FileNotFoundError(
-            f"No files matched pattern {root_dir}/{named_pattern} or {root_dir}/*/output.wav"
-        )
+        raise FileNotFoundError(f"No files matched strict pattern {root_dir}/{named_pattern}")
 
-    if using_named_outputs:
-        print(f"[eval_false_injection] Using named outputs pattern: {named_pattern}")
-    else:
-        print("[eval_false_injection] Named outputs not found; fallback to legacy output.wav")
+    print(f"[eval_false_injection] Using strict outputs pattern: {named_pattern}")
 
     records: list[dict[str, Any]] = []
     scores: list[int] = []
 
     for output_wav in tqdm(output_wavs, desc="Evaluating false injection"):
         sample_dir = output_wav.parent
-        if using_named_outputs:
-            output_json = sample_dir / f"output_{int(layer)}_{prob}.json"
-            if not output_json.exists():
-                # Fallback if wav is named but json is legacy.
-                output_json = sample_dir / "output.json"
-        else:
-            output_json = sample_dir / "output.json"
+        output_json = sample_dir / f"output_{int(layer)}_{prob}_asr.json"
         answer = _load_answer_text(output_json)
         question = _load_question_1(sample_dir)
 

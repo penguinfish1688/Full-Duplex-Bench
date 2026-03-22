@@ -125,8 +125,11 @@ if __name__ == "__main__":
         "--audio-source",
         type=str,
         default="output",
-        choices=["output", "input", "complete_sentence", "incomplete_sentence"],
-        help="Choose which wav to transcribe in each sample folder: output.wav (default) or input.wav",
+        help=(
+            "Audio stem to transcribe in each sample folder. "
+            "Examples: output, input, complete_sentence, incomplete_sentence, "
+            "or custom names like output_0_0.16"
+        ),
     )
     parser.add_argument(
         "--output-suffix",
