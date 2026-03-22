@@ -46,10 +46,10 @@ def main():
         help="Injection layer for false_injection output filename metadata.",
     )
     parser.add_argument(
-        "--prob",
+        "--expectation",
         type=float,
         default=None,
-        help="Injection probability for false_injection output filename metadata.",
+        help="False-signal expectation interval in seconds for false_injection filename metadata.",
     )
 
     parser.add_argument(
@@ -92,8 +92,8 @@ def main():
 
         if args.layer is None:
             raise ValueError("--task false_injection requires --layer")
-        if args.prob is None:
-            raise ValueError("--task false_injection requires --prob")
+        if args.expectation is None:
+            raise ValueError("--task false_injection requires --expectation")
 
         client = _build_openai_client()
         client.models.list()
@@ -101,7 +101,7 @@ def main():
             root_dir=args.root_dir,
             client=client,
             layer=args.layer,
-            prob=args.prob,
+            expectation=args.expectation,
         )
 
     elif args.task == "general_before_after":

@@ -92,11 +92,17 @@ def eval_false_injection(
     root_dir: str,
     client: OpenAI,
     layer: int,
-    prob: float,
+    expectation: float,
     model_name: str = "gpt-4o-mini",
 ) -> Path:
     root = Path(root_dir)
-    named_pattern = f"*/output_{int(layer)}_{prob}.wav"
+    expectation_tag = f"{float(expectation):.6f}".rstrip("0").rstrip(".")
+    if expectation_tag == "":
+        expectation_tag = "0"
+    if expectation == -1.0:
+        expectation_tag = "-1"
+
+    named_pattern = f"*/output_{int(layer)}_{expectation_tag}.wav"
     output_wavs = [p for p in root.glob(named_pattern) if p.is_file()]
     output_wavs.sort(key=lambda p: int(p.parent.name) if p.parent.name.isdigit() else p.parent.name)
     if not output_wavs:
@@ -109,7 +115,7 @@ def eval_false_injection(
 
     for output_wav in tqdm(output_wavs, desc="Evaluating false injection"):
         sample_dir = output_wav.parent
-        output_json = sample_dir / f"output_{int(layer)}_{prob}_asr.json"
+        output_json = sample_dir / f"output_{int(layer)}_{expectation_tag}_asr.json"
         answer = _load_answer_text(output_json)
         question = _load_question_1(sample_dir)
 
@@ -142,7 +148,7 @@ def eval_false_injection(
     payload: dict[str, Any] = {
         "question_source": "root_dir/*/user_interrupts_text.json::question_1",
         "layer": int(layer),
-        "prob": float(prob),
+        "expectation": float(expectation),
         "judge_model": model_name,
         "num_samples": len(records),
         "average_score": avg_score,
@@ -150,7 +156,7 @@ def eval_false_injection(
         "results": records,
     }
 
-    output_path = root / f"false_injection_{int(layer)}_{prob}.json"
+    output_path = root / f"false_injection_{int(layer)}_{expectation_tag}.json"
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
 
@@ -174,7 +180,7 @@ def main() -> None:
     parser = argparse.ArgumentParser("Evaluate false injection results")
     parser.add_argument("--root_dir", type=str, required=True)
     parser.add_argument("--layer", type=int, required=True)
-    parser.add_argument("--prob", type=float, required=True)
+    parser.add_argument("--expectation", type=float, required=True)
     parser.add_argument("--model", type=str, default="gpt-4o-mini")
     args = parser.parse_args()
 
@@ -183,7 +189,7 @@ def main() -> None:
         root_dir=args.root_dir,
         client=client,
         layer=int(args.layer),
-        prob=float(args.prob),
+        expectation=float(args.expectation),
         model_name=args.model,
     )
 
