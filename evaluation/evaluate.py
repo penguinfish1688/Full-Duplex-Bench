@@ -1,9 +1,22 @@
 import argparse
+import os
 from openai import OpenAI
 
-# For OpenAI API api key
+# For OpenAI API key, export before running:
+#   export OPENAI_API_KEY="..."
 # organization = "YOUR_ORG_ID"
-api_key = "YOUR_API_KEY"
+api_key = os.getenv("OPENAI_API_KEY", "")
+
+
+def _build_openai_client() -> OpenAI:
+    if not api_key:
+        raise ValueError(
+            "OPENAI_API_KEY is not set. Please run: export OPENAI_API_KEY='...'."
+        )
+    return OpenAI(
+        # organization=organization,
+        api_key=api_key,
+    )
 
 
 def main():
@@ -48,10 +61,7 @@ def main():
     elif args.task == "user_interruption":
         from eval_user_interruption import eval_user_interruption
 
-        client = OpenAI(
-            # organization=organization,
-            api_key=api_key,
-        )
+        client = _build_openai_client()
         client.models.list()
         eval_user_interruption(args.root_dir, client)
 
@@ -88,10 +98,7 @@ def main():
     elif args.task == "behavior":
         from eval_behavior import eval_behavior_all
 
-        client = OpenAI(
-            # organization=organization,
-            api_key=api_key,
-        )
+        client = _build_openai_client()
         output = eval_behavior_all(
             args.root_dir, client, task=args.task, aggregate=True
         )
