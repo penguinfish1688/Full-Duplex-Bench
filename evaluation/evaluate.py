@@ -1,5 +1,7 @@
 import argparse
 import os
+import importlib.util
+from pathlib import Path
 from openai import OpenAI
 
 # For OpenAI API key, export before running:
@@ -31,10 +33,23 @@ def main():
             "pause_handling",
             "smooth_turn_taking",
             "user_interruption",
+            "false_injection",
             "behavior",
             "general_before_after",
         ],
         help="Evaluation task to perform.",
+    )
+    parser.add_argument(
+        "--layer",
+        type=int,
+        default=None,
+        help="Injection layer for false_injection output filename metadata.",
+    )
+    parser.add_argument(
+        "--prob",
+        type=float,
+        default=None,
+        help="Injection probability for false_injection output filename metadata.",
     )
 
     parser.add_argument(
@@ -64,6 +79,30 @@ def main():
         client = _build_openai_client()
         client.models.list()
         eval_user_interruption(args.root_dir, client)
+
+    elif args.task == "false_injection":
+        script_dir = Path(__file__).resolve().parent
+        module_path = script_dir / "eval_false_injection.py"
+        spec = importlib.util.spec_from_file_location("eval_false_injection", module_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Unable to load module from {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        eval_false_injection = module.eval_false_injection
+
+        if args.layer is None:
+            raise ValueError("--task false_injection requires --layer")
+        if args.prob is None:
+            raise ValueError("--task false_injection requires --prob")
+
+        client = _build_openai_client()
+        client.models.list()
+        eval_false_injection(
+            root_dir=args.root_dir,
+            client=client,
+            layer=args.layer,
+            prob=args.prob,
+        )
 
     elif args.task == "general_before_after":
         from eval_general_before_after import eval_general_all_split
