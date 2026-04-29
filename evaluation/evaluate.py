@@ -58,6 +58,12 @@ def main():
         required=True,
         help="Root directory containing data for evaluation.",
     )
+    parser.add_argument(
+        "--max-workers",
+        type=int,
+        default=1,
+        help="Maximum concurrent workers for supported API-based tasks.",
+    )
 
     args = parser.parse_args()
 
@@ -78,7 +84,7 @@ def main():
 
         client = _build_openai_client()
         client.models.list()
-        eval_user_interruption(args.root_dir, client)
+        eval_user_interruption(args.root_dir, client, max_workers=args.max_workers)
 
     elif args.task == "false_injection":
         script_dir = Path(__file__).resolve().parent
