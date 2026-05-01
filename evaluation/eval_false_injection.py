@@ -102,20 +102,23 @@ def eval_false_injection(
     if expectation == -1.0:
         expectation_tag = "-1"
 
-    named_pattern = f"*/output_{int(layer)}_{expectation_tag}.wav"
-    output_wavs = [p for p in root.glob(named_pattern) if p.is_file()]
+    live_pattern = "*/output.wav"
+    output_wavs = [p for p in root.glob(live_pattern) if p.is_file()]
     output_wavs.sort(key=lambda p: int(p.parent.name) if p.parent.name.isdigit() else p.parent.name)
     if not output_wavs:
-        raise FileNotFoundError(f"No files matched strict pattern {root_dir}/{named_pattern}")
+        raise FileNotFoundError(f"No files matched strict pattern {root_dir}/{live_pattern}")
 
-    print(f"[eval_false_injection] Using strict outputs pattern: {named_pattern}")
+    print(
+        f"[eval_false_injection] Using current live outputs pattern: {live_pattern}; "
+        f"saving aggregate result as false_injection_{int(layer)}_{expectation_tag}.json"
+    )
 
     records: list[dict[str, Any]] = []
     scores: list[int] = []
 
     for output_wav in tqdm(output_wavs, desc="Evaluating false injection"):
         sample_dir = output_wav.parent
-        output_json = sample_dir / f"output_{int(layer)}_{expectation_tag}_asr.json"
+        output_json = sample_dir / "output_asr.json"
         answer = _load_answer_text(output_json)
         question = _load_question_1(sample_dir)
 
